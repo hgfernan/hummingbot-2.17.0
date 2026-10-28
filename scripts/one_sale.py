@@ -99,20 +99,20 @@ class OnePurchase(StrategyV2Base):
 
         self.logger().info("Started")
 
-    def place_buy_order(self, amount: Decimal):
+    def place_sell_order(self, amount: Decimal):
         """
-        Place a limit buy order
+        Place a limit sell order
         """
 
         mid_price: Decimal = self.connector.get_mid_price(self.trading_pair)
 
         order_id: str = \
-            self.buy(self.connector_name,
-                     self.trading_pair,
-                     amount / mid_price,
-                     OrderType.LIMIT,
-                     mid_price
-                     )
+            self.sell(self.connector_name,
+                      self.trading_pair,
+                      amount / mid_price,
+                      OrderType.LIMIT,
+                      mid_price
+                      )
 
         now: float = \
             datetime.datetime.now(tz=datetime.timezone.utc).timestamp()
@@ -126,9 +126,9 @@ class OnePurchase(StrategyV2Base):
         """
 
         if not self.initialized:
-            self.logger().info("Will buy")
+            self.logger().info("Will sell")
 
-            self.place_buy_order(self.amount_quote)
+            self.place_sell_order(self.amount_quote)
             self.initialized = True
 
     def did_fill_order(self, event: OrderFilledEvent):
@@ -152,7 +152,7 @@ class OnePurchase(StrategyV2Base):
                        )
         )
 
-    def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
+    def did_complete_sell_order(self, event: BuyOrderCompletedEvent):
         """
         Monitor the completion of the order, logs the trade history and leaves
         application
