@@ -190,9 +190,9 @@ class OnePurchase(StrategyV2Base):
             if trade_event.price is None:
                 line += 10 * "-"
             else:
-                line += f"{trade_event.price:10.2f}\n"
+                line += f"{trade_event.price:10.2f}"
 
-            all_events += line
+            all_events += line + "\n"
 
         self.logger().info(all_events)
 
