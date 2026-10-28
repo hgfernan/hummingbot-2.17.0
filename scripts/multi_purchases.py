@@ -129,7 +129,6 @@ class MultiPurchases(StrategyV2Base):
 
         super().__init__(connectors, config)
         self.config = config
-        self.should_start = True
         self.connector_name = self.config.connector_name
         self.trading_pair = self.config.trading_pair
         self.amount_quote = self.config.amount_quote
@@ -139,6 +138,7 @@ class MultiPurchases(StrategyV2Base):
         fields: List[str] = self.trading_pair.split("-")
         self.base_name: str = fields[0]
         self.quote_name: str = fields[1]
+        self.order_filled: bool = True
 
         self.connector = self.connectors[self.connector_name]
 
@@ -179,6 +179,8 @@ class MultiPurchases(StrategyV2Base):
                        mid_price
                        )
         )
+
+        self.order_filled = False
 
     def get_overall_info(self, desc: str) -> OverallInfo:
         """
@@ -234,13 +236,13 @@ class MultiPurchases(StrategyV2Base):
         Almost like a main program
         """
 
-        if self.purchase_count > self.n_purchases:
+        if self.purchase_count >= self.n_purchases:
             self.save_csv()
 
             # HINT finish application
             HummingbotApplication.main_application().stop()
 
-        if self.should_start:
+        if self.order_filled:
             next_count: int = self.purchase_count + 1
 
             self.logger().info("Will start buy count #%02d", next_count)
@@ -308,20 +310,5 @@ class MultiPurchases(StrategyV2Base):
             self.get_overall_info("Order filled")
         )
 
-        # # HINT log events
-        # all_events: str = '\n'
-        # for trade_event in self.trade_events:
-        #     line: str = f"{trade_event.event_ts:10.2f} "
-        #     line += f"{trade_event.desc:<40} "
-        #     line += f"{trade_event.order_id:<20} "
-        #     line += f"{trade_event.base_amount:12.8f} "
-        #     line += f"{trade_event.quote_amount:10.2f} "
-
-        #     if trade_event.price is None:
-        #         line += 10 * "-"
-        #     else:
-        #         line += f"{trade_event.price:10.2f}\n"
-
-        #     all_events += line
-
-        # self.logger().info(all_events)
+        self.purchase_count += 1
+        self.order_filled = True
