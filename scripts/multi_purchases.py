@@ -229,7 +229,7 @@ class MultiPurchases(StrategyV2Base):
         # HINT Normal function termination
         return True
 
-    def savel_all_csv(self) -> bool:
+    def save_all_csv(self) -> bool:
         """
         Save overall info and trade events as CSV files
         """
@@ -241,13 +241,13 @@ class MultiPurchases(StrategyV2Base):
         suffix += datetime.datetime.now(tz=datetime.timezone.utc)\
             .strftime("%Y%m%d_%H%M%S") + ".csv"
 
-        csv_name = "overall_info-" + suffix
+        csv_name = "mp_overall_info-" + suffix
         csv_name = os.path.join(data_path(), csv_name)
 
         if not self.save_csv(csv_name=csv_name, data=self.overall_infos):
             result = False
 
-        csv_name = "trade_events-" + suffix
+        csv_name = "mp_trade_events-" + suffix
         csv_name = os.path.join(data_path(), csv_name)
 
         if not self.save_csv(csv_name=csv_name, data=self.trade_events):
@@ -262,7 +262,7 @@ class MultiPurchases(StrategyV2Base):
         """
 
         if self.purchase_count >= self.n_purchases:
-            self.savel_all_csv()
+            self.save_all_csv()
 
             # HINT finish application
             HummingbotApplication.main_application().stop()
@@ -276,7 +276,9 @@ class MultiPurchases(StrategyV2Base):
             self.overall_infos.append(self.get_overall_info(msg))
 
             self.place_buy_order(self.amount_quote)
+
             msg = f"Buy #{next_count} placed"
+            self.logger().info(msg)
 
     def did_fill_order(self, event: OrderFilledEvent) -> None:
         """

@@ -24,17 +24,6 @@ from hummingbot.core.data_type.common import MarketDict, OrderType
 from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
-# TODO for all events
-# ... TODO if should_buy then buy
-# ... TODO if should_sell then sell
-
-# TODO did_complete_order
-    # TODO if status == BUYING
-        # TODO should_sell = True
-    # TODO else if status = SELLING
-        # TODO should_buy = True
-
-
 class TradeStatus(Enum):
     INACTIVE = 0
     BUYING = auto()
@@ -157,7 +146,7 @@ class BuySell(StrategyV2Base):
         self.n_cycles = self.config.n_cycles
 
         self.cycle_count: int = 0
-        self.buy_price: float = 0.0
+        self.buy_price: Decimal = Decimal(0.0)
 
         fields: List[str] = self.trading_pair.split("-")
         self.base_name: str = fields[0]
@@ -286,7 +275,7 @@ class BuySell(StrategyV2Base):
         # HINT Normal function termination
         return True
 
-    def savel_all_csv(self) -> bool:
+    def save_all_csv(self) -> bool:
         """
         Save overall info and trade events as CSV files
         """
@@ -312,3 +301,48 @@ class BuySell(StrategyV2Base):
 
         # HINT Normal function termination
         return result
+
+    def on_tick(self) -> None:
+        """
+        Almost like a main program
+        """
+
+        if self.cycle_count >= self.n_cycles:
+            self.save_all_csv()
+
+            # HINT finish application
+            HummingbotApplication.main_application().stop()
+
+        if self.order_filled:
+            next_count: int = self.purchase_count + 1
+
+            self.logger().info("Will start buy count #%02d", next_count)
+
+            msg: str = f"Before buy #{next_count}"
+            self.overall_infos.append(self.get_overall_info(msg))
+
+            self.place_buy_order(self.amount_quote)
+
+        next_cycle: int = self.cycle_count + 1
+        if self.should_buy:
+            self.logger().info("Will start cycle count #%02d", next_count)
+
+            msg: str = f"Before cycle #{next_cycle:}"
+            self.overall_infos.append(self.get_overall_info(msg))
+
+            self.place_buy_order(self.amount_quote)
+
+            msg = f"Cycle #{next_cycle} buy placed"
+            self.logger().info(msg)
+
+
+
+# TODO for all events
+# ... TODO if should_buy then buy
+# ... TODO if should_sell then sell
+
+# TODO did_complete_order
+    # TODO if status == BUYING
+        # TODO should_sell = True
+    # TODO else if status = SELLING
+        # TODO should_buy = True
