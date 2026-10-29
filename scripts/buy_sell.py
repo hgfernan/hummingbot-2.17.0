@@ -21,10 +21,15 @@ from hummingbot import data_path
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import MarketDict, OrderType
-from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent
+from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
+
 class TradeStatus(Enum):
+    """
+    Trading status
+    """
+
     INACTIVE = 0
     BUYING = auto()
     SELLING = auto()
@@ -210,7 +215,7 @@ class BuySell(StrategyV2Base):
                       amount / self.buy_price,
                       OrderType.LIMIT,
                       self.buy_price
-                     )
+                      )
 
         now: float = self.get_timestamp()
         self.trade_events.append(
@@ -313,36 +318,133 @@ class BuySell(StrategyV2Base):
             # HINT finish application
             HummingbotApplication.main_application().stop()
 
-        if self.order_filled:
-            next_count: int = self.purchase_count + 1
-
-            self.logger().info("Will start buy count #%02d", next_count)
-
-            msg: str = f"Before buy #{next_count}"
-            self.overall_infos.append(self.get_overall_info(msg))
-
-            self.place_buy_order(self.amount_quote)
+            # HINT Return to leave the function
+            return
 
         next_cycle: int = self.cycle_count + 1
-        if self.should_buy:
-            self.logger().info("Will start cycle count #%02d", next_count)
 
-            msg: str = f"Before cycle #{next_cycle:}"
+        if self.should_buy:
+            self.logger().info("Will start cycle count #%02d", next_cycle)
+
+            msg = f"Before cycle #{next_cycle:}"
             self.overall_infos.append(self.get_overall_info(msg))
 
-            self.place_buy_order(self.amount_quote)
-
             msg = f"Cycle #{next_cycle} buy placed"
+            self.place_buy_order(self.amount_quote, desc=msg)
+
             self.logger().info(msg)
 
+        if self.should_sell:
+            self.logger().info("Second step of cycle count #%02d", next_cycle)
 
+            msg = f"Before 2nd step of cycle #{next_cycle:}"
+            self.overall_infos.append(self.get_overall_info(msg))
 
-# TODO for all events
-# ... TODO if should_buy then buy
-# ... TODO if should_sell then sell
+            msg = f"Cycle #{next_cycle} sell placed"
+            self.place_sell_order(self.amount_quote, desc=msg)
 
-# TODO did_complete_order
-    # TODO if status == BUYING
-        # TODO should_sell = True
-    # TODO else if status = SELLING
-        # TODO should_buy = True
+            self.logger().info(msg)
+
+    def did_fill_order(self, event: OrderFilledEvent) -> None:
+        """
+        Monitor partial order fills
+        """
+
+        msg = f"{event.trade_type.name} {round(event.amount, 8)} " + \
+            f"{event.trading_pair} at {round(event.price, 2)}"
+        self.logger().info(msg)
+
+        self.notify_hb_app_with_timestamp(msg)
+
+        side: str = self.status.name.capitalize()
+        desc: str = f"Partial {side} cycle {self.cycle_count}"
+        self.trade_events.append(
+            TradeEvent(self.get_timestamp(),
+                       event.timestamp,
+                       side,
+                       desc,
+                       event.order_id,
+                       base_amount=event.amount,
+                       quote_amount=event.amount * event.price,
+                       price=event.price,
+                       )
+        )
+
+        self.overall_infos.append(self.get_overall_info(desc))
+
+    def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
+        """
+        Monitor the completion of the buy order and logs the trade history
+        """
+
+        trading_pair: str = event.base_asset + "-" + event.quote_asset
+        base_amount: Decimal = event.base_asset_amount
+        quote_amount: Decimal = event.quote_asset_amount
+
+        msg = f"Buy completed {event.order_type.name} {trading_pair}: " + \
+            f"base {base_amount} quote {quote_amount}"
+        self.logger().info(msg)
+
+        self.notify_hb_app_with_timestamp(msg)
+
+        side: str = self.status.name.capitalize()
+        desc: str = f"Filled {side} cycle {self.cycle_count + 1}"
+
+        self.trade_events.append(
+            TradeEvent(self.get_timestamp(),
+                       event.timestamp,
+                       side,
+                       desc,
+                       event.order_id,
+                       base_amount=base_amount,
+                       quote_amount=quote_amount,
+                       price=None
+                       )
+        )
+
+        self.overall_infos.append(
+            self.get_overall_info(desc)
+        )
+
+        self.should_sell = True
+
+    def did_complete_sell_order(self, event: SellOrderCompletedEvent):
+        """
+        Monitor the completion of the sell order and logs the trade history
+        """
+
+        trading_pair: str = event.base_asset + "-" + event.quote_asset
+        base_amount: Decimal = event.base_asset_amount
+        quote_amount: Decimal = event.quote_asset_amount
+
+        next_cycle: int = self.cycle_count + 1
+
+        msg = f"Sell completed {event.order_type.name} {trading_pair}: " + \
+            f"base {base_amount} quote {quote_amount}"
+        self.logger().info(msg)
+
+        self.logger().info("Buy sell cycle #{next_cycle} completed")
+
+        self.notify_hb_app_with_timestamp(msg)
+
+        side: str = self.status.name.capitalize()
+        desc: str = f"Filled {side} cycle #{next_cycle}"
+
+        self.trade_events.append(
+            TradeEvent(self.get_timestamp(),
+                       event.timestamp,
+                       side,
+                       desc,
+                       event.order_id,
+                       base_amount=base_amount,
+                       quote_amount=quote_amount,
+                       price=None
+                       )
+        )
+
+        self.overall_infos.append(
+            self.get_overall_info(desc)
+        )
+
+        self.cycle_count += 1
+        self.should_buy = True
