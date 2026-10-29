@@ -8,12 +8,11 @@ Purpose: A specifile number of purchases in HummingBot
 @author: @hgfernn
 """
 
-
 import csv  # class DictWriter,
 import datetime  # class datetime, class timezone
 import os  # path
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 from pydantic import BaseModel, Field
 
@@ -154,7 +153,7 @@ class MultiPurchases(StrategyV2Base):
 
         return datetime.datetime.now(tz=datetime.timezone.utc).timestamp()
 
-    def place_buy_order(self, amount: Decimal) -> None:
+    def place_buy_order(self, amount: Decimal, desc: str) -> None:
         """
         Place a limit buy order
         """
@@ -173,7 +172,7 @@ class MultiPurchases(StrategyV2Base):
         self.trade_events.append(
             TradeEvent(now,
                        now,
-                       "Started",
+                       desc,
                        order_id,
                        self.amount_quote,
                        mid_price
@@ -203,41 +202,67 @@ class MultiPurchases(StrategyV2Base):
         # HINT Normal function termination
         return result
 
-    def save_csv(self) -> bool:
+    def save_csv(self, csv_name: str, data: Sequence[BaseModel]) -> bool:
         """
-        Save overall info and trade events as CSV files
+        Save a BaseModel list as a CSV file
         """
 
-        # result: bool = False
-        suffix: str = "overall_info-"
-        suffix += datetime.datetime.now(tz=datetime.timezone.utc)\
-            .strftime("%Y%m%d_%H%M%S") + ".csv"
-        csv_name: str = os.path.join(data_path(), suffix)
+        msg: str = ""
 
-        if len(self.overall_infos) > 0:
-            field_names: List[str] = \
-                list(self.overall_infos[0].model_dump().keys())
+        if len(data) <= 0:
+            msg = "Empty data list. Can't create CSV file '{csv_name}'"
+            self.logger().error(msg)
 
-            with open(csv_name, "w", encoding="utf-8") as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=field_names)
-
-                writer.writeheader()
-                for overall_info in self.overall_infos:
-                    writer.writerow(overall_info.model_dump())
-
-        else:
+            # HINT Return to indicate failure
             return False
+
+        field_names: List[str] = \
+            list(data[0].model_dump().keys())
+
+        with open(csv_name, "w", encoding="utf-8") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=field_names)
+
+            writer.writeheader()
+            for row in data:
+                writer.writerow(row.model_dump())
 
         # HINT Normal function termination
         return True
 
-    def on_tick(self):
+    def savel_all_csv(self) -> bool:
+        """
+        Save overall info and trade events as CSV files
+        """
+
+        result: bool = True
+        suffix: str = ""
+        csv_name: str = ""
+
+        suffix += datetime.datetime.now(tz=datetime.timezone.utc)\
+            .strftime("%Y%m%d_%H%M%S") + ".csv"
+
+        csv_name = "overall_info-" + suffix
+        csv_name = os.path.join(data_path(), csv_name)
+
+        if not self.save_csv(csv_name=csv_name, data=self.overall_infos):
+            result = False
+
+        csv_name = "trade_events-" + suffix
+        csv_name = os.path.join(data_path(), csv_name)
+
+        if not self.save_csv(csv_name=csv_name, data=self.trade_events):
+            result = False
+
+        # HINT Normal function termination
+        return result
+
+    def on_tick(self) -> None:
         """
         Almost like a main program
         """
 
         if self.purchase_count >= self.n_purchases:
-            self.save_csv()
+            self.savel_all_csv()
 
             # HINT finish application
             HummingbotApplication.main_application().stop()
@@ -253,9 +278,7 @@ class MultiPurchases(StrategyV2Base):
             self.place_buy_order(self.amount_quote)
             msg = f"Buy #{next_count} placed"
 
-            self.should_start = False
-
-    def did_fill_order(self, event: OrderFilledEvent):
+    def did_fill_order(self, event: OrderFilledEvent) -> None:
         """
         Monitor partial order fills
         """
