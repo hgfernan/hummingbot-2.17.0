@@ -267,6 +267,9 @@ class MultiPurchases(StrategyV2Base):
             # HINT finish application
             HummingbotApplication.main_application().stop()
 
+            # HINT Return to avoid next steps
+            return
+
         if self.order_filled:
             next_count: int = self.purchase_count + 1
 
@@ -275,7 +278,7 @@ class MultiPurchases(StrategyV2Base):
             msg: str = f"Before buy #{next_count}"
             self.overall_infos.append(self.get_overall_info(msg))
 
-            self.place_buy_order(self.amount_quote)
+            self.place_buy_order(self.amount_quote, "Start")
 
             msg = f"Buy #{next_count} placed"
             self.logger().info(msg)
