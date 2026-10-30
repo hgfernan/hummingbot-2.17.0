@@ -180,14 +180,14 @@ class BuySell(StrategyV2Base):
         Place a limit buy order
         """
 
-        mid_price: Decimal = self.connector.get_mid_price(self.trading_pair)
+        self.buy_price = self.connector.get_mid_price(self.trading_pair)
 
         order_id: str = \
             self.buy(self.connector_name,
                      self.trading_pair,
-                     amount / mid_price,
+                     amount / self.buy_price,
                      OrderType.LIMIT,
-                     mid_price
+                     self.buy_price
                      )
 
         now: float = self.get_timestamp()
@@ -198,7 +198,7 @@ class BuySell(StrategyV2Base):
                        desc,
                        order_id,
                        self.amount_quote,
-                       mid_price
+                       self.buy_price
                        )
         )
 
