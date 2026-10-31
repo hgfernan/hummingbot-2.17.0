@@ -98,8 +98,8 @@ class MonitorMidPrice(StrategyV2Base):
         """
 
         if self.tick_count >= self.n_ticks:
-            self.logger("Finished: recorded %d ticks of %d",
-                        self.tick_count, self.n_ticks)
+            self.logger().info("Finished: recorded %d ticks of %d",
+                               self.tick_count, self.n_ticks)
 
             # HINT finish application
             HummingbotApplication.main_application().stop()
