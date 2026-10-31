@@ -125,4 +125,4 @@ class MonitorMidPrice(StrategyV2Base):
         self.tick_count += 1
 
         if (self.tick_count % 10) == 0:
-            self.logger().info("Recorded %d", self.self.tick_count)
+            self.logger().info("Recorded %d", self.tick_count)
