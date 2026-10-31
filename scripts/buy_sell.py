@@ -152,6 +152,7 @@ class BuySell(StrategyV2Base):
 
         self.cycle_count: int = 0
         self.buy_price: Decimal = Decimal(0.0)
+        self.sell_price: Decimal = Decimal(0.0)
 
         fields: List[str] = self.trading_pair.split("-")
         self.base_name: str = fields[0]
@@ -209,12 +210,23 @@ class BuySell(StrategyV2Base):
         Place a limit buy order
         """
 
+        one: Decimal = Decimal(1.0)
+        two: Decimal = Decimal(2.0)
+        fee: Decimal = Decimal(0.001)
+
+        factor: Decimal = (one - fee)
+        factor = (one + fee / two) / (factor * factor)
+
+        self.sell_price = self.buy_price * factor
+        self.logger()\
+            .info("factor %f, sell_price %f", factor, self.sell_price)
+
         order_id: str = \
             self.sell(self.connector_name,
                       self.trading_pair,
-                      amount / self.buy_price,
+                      amount / self.sell_price,
                       OrderType.LIMIT,
-                      self.buy_price
+                      self.sell_price
                       )
 
         now: float = self.get_timestamp()
@@ -261,7 +273,7 @@ class BuySell(StrategyV2Base):
         msg: str = ""
 
         if len(data) <= 0:
-            msg = "Empty data list. Can't create CSV file '{csv_name}'"
+            msg = f"Empty data list. Can't create CSV file '{csv_name}'"
             self.logger().error(msg)
 
             # HINT Return to indicate failure
@@ -423,7 +435,7 @@ class BuySell(StrategyV2Base):
             f"base {base_amount} quote {quote_amount}"
         self.logger().info(msg)
 
-        self.logger().info("Buy sell cycle #{next_cycle} completed")
+        self.logger().info(f"Buy sell cycle #{next_cycle} completed")
 
         self.notify_hb_app_with_timestamp(msg)
 
